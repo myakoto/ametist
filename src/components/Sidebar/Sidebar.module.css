@@ -1,0 +1,155 @@
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.vaultName {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.actions button {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+
+.actions button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.treeWrapper {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.fileTree {
+  display: flex;
+  flex-direction: column;
+}
+
+.emptyTree {
+  padding: 16px 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.fileItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  padding-right: 8px;
+  cursor: pointer;
+  border-radius: var(--radius);
+  margin: 0 4px;
+  transition: background 0.1s;
+  min-height: 26px;
+}
+
+.fileItem:hover {
+  background: var(--bg-hover);
+}
+
+.fileItem.active {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.fileIcon {
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 12px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.fileName {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.fileItem.active .fileName,
+.fileItem:hover .fileName {
+  color: var(--text-primary);
+}
+
+.renameInput {
+  font-size: 13px;
+  flex: 1;
+  background: var(--bg-primary);
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  padding: 0 3px;
+  color: var(--text-primary);
+  user-select: text;
+}
+
+.contextMenu {
+  position: fixed;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  overflow: hidden;
+  min-width: 140px;
+}
+
+.contextMenu button {
+  display: block;
+  width: 100%;
+  padding: 7px 14px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: background 0.1s;
+}
+
+.contextMenu button:hover {
+  background: var(--bg-hover);
+}
+
+.contextMenu .deleteAction {
+  color: #f38ba8;
+}

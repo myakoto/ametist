@@ -1,0 +1,46 @@
+:root {
+  /* Backgrounds */
+  --bg-primary: #eff1f5;
+  --bg-secondary: #e6e9ef;
+  --bg-tertiary: #dce0e8;
+  --bg-hover: #ccd0da;
+  --bg-active: #bcc0cc;
+
+  /* Text */
+  --text-primary: #4c4f69;
+  --text-secondary: #5c5f77;
+  --text-muted: #9ca0b0;
+
+  /* Accent */
+  --accent: #8839ef;
+  --accent-hover: #7928d8;
+
+  /* Border */
+  --border: #ccd0da;
+
+  /* Editor (CodeMirror) */
+  --editor-bg: #eff1f5;
+  --editor-text: #4c4f69;
+  --editor-cursor: #dc8a78;
+  --editor-selection: #bcc0cc;
+  --editor-line-highlight: #e6e9ef;
+
+  /* Syntax highlighting */
+  --syntax-heading: #1e66f5;
+  --syntax-bold: #d20f39;
+  --syntax-italic: #40a02b;
+  --syntax-code: #df8e1d;
+  --syntax-link: #179299;
+  --syntax-comment: #9ca0b0;
+
+  /* Typography */
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-editor: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-size-editor: 14px;
+
+  /* Layout */
+  --sidebar-width: 240px;
+  --titlebar-height: 36px;
+  --statusbar-height: 24px;
+  --radius: 4px;
+}

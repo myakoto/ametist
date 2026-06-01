@@ -247,9 +247,10 @@ export function buildExtensions(opts: {
   if (opts.onUpdate) extensions.push(EditorView.updateListener.of(opts.onUpdate))
 
   // wikilinks
-  extensions.push(wikilinkHighlight())
+  const getFiles = opts.getFiles ?? (() => [])
+  extensions.push(wikilinkHighlight(getFiles))
   extensions.push(wikilinkTheme)
-  if (opts.getFiles) extensions.push(wikilinkCompletion(opts.getFiles))
+  extensions.push(wikilinkCompletion(getFiles))
   if (opts.onOpenByName) extensions.push(wikilinkClickHandler(opts.onOpenByName))
 
   return extensions

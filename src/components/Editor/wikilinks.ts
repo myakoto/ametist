@@ -1,29 +1,66 @@
-import { EditorView, Decoration, DecorationSet, ViewPlugin, ViewUpdate, MatchDecorator } from '@codemirror/view'
+import {
+  EditorView,
+  Decoration,
+  DecorationSet,
+  ViewPlugin,
+  ViewUpdate,
+} from '@codemirror/view'
+import { RangeSetBuilder } from '@codemirror/state'
 import { autocompletion, Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete'
 import { FileNode } from '../../store/appStore'
 
-// ─── Decoration: highlight [[wikilinks]] ────────────────────────────────────
-
-const wikilinkMark = Decoration.mark({ class: 'cm-wikilink' })
-
 const WIKILINK_RE = /\[\[([^\[\]\n]+)\]\]/g
 
-const wikilinkDecorator = new MatchDecorator({
-  regexp: WIKILINK_RE,
-  decoration() {
-    return wikilinkMark
-  },
-})
+const wikilinkMark = Decoration.mark({ class: 'cm-wikilink' })
+const wikilinkBrokenMark = Decoration.mark({ class: 'cm-wikilink cm-wikilink-broken' })
 
-export function wikilinkHighlight() {
+function buildFileSet(nodes: FileNode[]): Set<string> {
+  const set = new Set<string>()
+  const walk = (items: FileNode[]) => {
+    for (const n of items) {
+      if (n.isDir) { if (n.children) walk(n.children) }
+      else set.add(n.name.replace(/\.md$/, '').toLowerCase())
+    }
+  }
+  walk(nodes)
+  return set
+}
+
+// ─── Decoration: highlight [[wikilinks]] with existence check ────────────────
+
+export function wikilinkHighlight(getFiles: () => FileNode[]) {
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet
+
       constructor(view: EditorView) {
-        this.decorations = wikilinkDecorator.createDeco(view)
+        this.decorations = this.build(view)
       }
+
       update(update: ViewUpdate) {
-        this.decorations = wikilinkDecorator.updateDeco(update, this.decorations)
+        if (update.docChanged || update.viewportChanged) {
+          this.decorations = this.build(update.view)
+        }
+      }
+
+      build(view: EditorView): DecorationSet {
+        const fileSet = buildFileSet(getFiles())
+        const builder = new RangeSetBuilder<Decoration>()
+
+        for (const { from, to } of view.visibleRanges) {
+          const text = view.state.doc.sliceString(from, to)
+          WIKILINK_RE.lastIndex = 0
+          let match: RegExpExecArray | null
+          while ((match = WIKILINK_RE.exec(text)) !== null) {
+            const start = from + match.index
+            const end = start + match[0].length
+            const inner = match[1].split('|')[0].split('#')[0].trim().toLowerCase()
+            const exists = fileSet.has(inner)
+            builder.add(start, end, exists ? wikilinkMark : wikilinkBrokenMark)
+          }
+        }
+
+        return builder.finish()
       }
     },
     { decorations: (v) => v.decorations }
@@ -32,23 +69,17 @@ export function wikilinkHighlight() {
 
 // ─── Click handler: open [[linked file]] ────────────────────────────────────
 
-export function wikilinkClickHandler(
-  onOpenByName: (name: string) => void
-) {
+export function wikilinkClickHandler(onOpenByName: (name: string) => void) {
   return EditorView.domEventHandlers({
     click(event, view) {
       const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
       if (pos === null) return false
 
       const doc = view.state.doc.toString()
-      // find all wikilinks and check if click landed inside one
+      WIKILINK_RE.lastIndex = 0
       let match: RegExpExecArray | null
-      const re = /\[\[([^\[\]\n]+)\]\]/g
-      while ((match = re.exec(doc)) !== null) {
-        const start = match.index
-        const end = match.index + match[0].length
-        if (pos >= start && pos <= end) {
-          // extract name (strip alias after | and heading after #)
+      while ((match = WIKILINK_RE.exec(doc)) !== null) {
+        if (pos >= match.index && pos <= match.index + match[0].length) {
           const inner = match[1].split('|')[0].split('#')[0].trim()
           onOpenByName(inner)
           return true
@@ -63,64 +94,54 @@ export function wikilinkClickHandler(
 
 export function wikilinkCompletion(getFiles: () => FileNode[]) {
   const completionSource = (ctx: CompletionContext): CompletionResult | null => {
-    // match [[ followed by anything (no closing bracket yet)
-    const match = ctx.matchBefore(/\[\[[^\]]*/)
+    const match = ctx.matchBefore(/\[\[[^\]]*/);
     if (!match) return null
-    // only complete if cursor is right after [[
-    const query = match.text.slice(2) // text after [[
+    const query = match.text.slice(2)
 
-    const files = getFiles()
-    const options: Completion[] = flatFiles(files)
+    const options: Completion[] = flatFileNames(getFiles())
       .filter((name) => name.toLowerCase().includes(query.toLowerCase()))
       .map((name) => ({
         label: name,
-        apply: (view: EditorView, completion: Completion, from: number, to: number) => {
-          // replace from after [[ to current cursor
+        apply: (view: EditorView, _c: Completion, from: number, to: number) => {
           view.dispatch({
-            changes: { from, to, insert: completion.label + ']]' },
-            selection: { anchor: from + completion.label.length + 2 },
+            changes: { from, to, insert: name + ']]' },
+            selection: { anchor: from + name.length + 2 },
           })
         },
         type: 'file',
         boost: 1,
       }))
 
-    return {
-      from: match.from + 2, // start options after [[
-      options,
-      validFor: /^[^\]]*$/,
-    }
+    return { from: match.from + 2, options, validFor: /^[^\]]*$/ }
   }
 
-  return autocompletion({
-    override: [completionSource],
-    icons: false,
-    closeOnBlur: true,
-  })
+  return autocompletion({ override: [completionSource], icons: false, closeOnBlur: true })
 }
 
-function flatFiles(nodes: FileNode[]): string[] {
+function flatFileNames(nodes: FileNode[]): string[] {
   const names: string[] = []
-  for (const node of nodes) {
-    if (node.isDir) {
-      if (node.children) names.push(...flatFiles(node.children))
-    } else {
-      names.push(node.name.replace(/\.md$/, ''))
+  const walk = (items: FileNode[]) => {
+    for (const n of items) {
+      if (n.isDir) { if (n.children) walk(n.children) }
+      else names.push(n.name.replace(/\.md$/, ''))
     }
   }
+  walk(nodes)
   return names
 }
 
-// ─── Theme additions for wikilinks ──────────────────────────────────────────
+// ─── Theme ──────────────────────────────────────────────────────────────────
 
 export const wikilinkTheme = EditorView.baseTheme({
   '.cm-wikilink': {
     color: 'var(--syntax-link)',
-    textDecoration: 'none',
     cursor: 'pointer',
     borderBottom: '1px solid var(--syntax-link)',
   },
-  '.cm-wikilink:hover': {
-    opacity: '0.8',
+  '.cm-wikilink-broken': {
+    color: 'var(--text-muted)',
+    borderBottomColor: 'var(--text-muted)',
+    borderBottomStyle: 'dashed',
   },
+  '.cm-wikilink:hover': { opacity: '0.75' },
 })

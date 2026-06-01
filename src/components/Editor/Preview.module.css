@@ -11,9 +11,26 @@
   margin: 0 auto;
 }
 
-.preview :global(.empty) {
+.preview :global(.preview-empty) {
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* Wikilinks in preview */
+.preview :global(.wikilink) {
+  color: var(--syntax-link);
+  text-decoration: none;
+  border-bottom: 1px solid var(--syntax-link);
+  cursor: pointer;
+}
+
+.preview :global(.wikilink:hover) {
+  opacity: 0.75;
+}
+
+.preview :global(.wikilink-broken) {
+  color: var(--text-muted);
+  border-bottom: 1px dashed var(--text-muted);
 }
 
 /* Headings */

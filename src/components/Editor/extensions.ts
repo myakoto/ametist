@@ -5,6 +5,8 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { tags } from '@lezer/highlight'
+import { wikilinkHighlight, wikilinkClickHandler, wikilinkCompletion, wikilinkTheme } from './wikilinks'
+import { FileNode } from '../../store/appStore'
 import {
   formatBold,
   formatItalic,
@@ -200,6 +202,8 @@ export function buildExtensions(opts: {
   useTabs: boolean
   onSave: () => void
   onUpdate?: (update: ViewUpdate) => void
+  getFiles?: () => FileNode[]
+  onOpenByName?: (name: string) => void
 }) {
   const extensions = [
     history(),
@@ -241,6 +245,12 @@ export function buildExtensions(opts: {
   if (opts.wordWrap) extensions.push(EditorView.lineWrapping)
   if (opts.lineNumbersEnabled) extensions.push(lineNumbers())
   if (opts.onUpdate) extensions.push(EditorView.updateListener.of(opts.onUpdate))
+
+  // wikilinks
+  extensions.push(wikilinkHighlight())
+  extensions.push(wikilinkTheme)
+  if (opts.getFiles) extensions.push(wikilinkCompletion(opts.getFiles))
+  if (opts.onOpenByName) extensions.push(wikilinkClickHandler(opts.onOpenByName))
 
   return extensions
 }

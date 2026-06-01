@@ -21,6 +21,7 @@ pub fn run() {
             commands::vault::create_dir,
             commands::vault::rename_entry,
             commands::vault::delete_entry,
+            commands::vault::search_backlinks,
             commands::config::get_config,
             commands::config::set_config,
         ])

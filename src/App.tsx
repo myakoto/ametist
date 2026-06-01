@@ -6,6 +6,7 @@ import { TitleBar } from './components/TitleBar/TitleBar'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { Editor } from './components/Editor/Editor'
 import { Settings } from './components/Settings/Settings'
+import { Backlinks } from './components/Backlinks/Backlinks'
 import styles from './App.module.css'
 
 export function applyTheme(customVars: Record<string, string>) {
@@ -90,6 +91,7 @@ export default function App() {
         {sidebarVisible && <Sidebar />}
         <main className={styles.main}>
           <Editor />
+          <Backlinks />
         </main>
         {settingsOpen && <Settings />}
       </div>

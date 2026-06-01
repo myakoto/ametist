@@ -133,3 +133,83 @@ pub async fn delete_entry(path: String) -> Result<(), AppError> {
     }
     Ok(())
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BacklinkResult {
+    pub path: String,
+    pub name: String,
+    pub matches: Vec<BacklinkMatch>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BacklinkMatch {
+    pub line: u32,
+    pub text: String,
+}
+
+/// Search all .md files in vault for [[target_name]] references
+#[tauri::command]
+pub async fn search_backlinks(
+    vault_path: String,
+    target_name: String,
+) -> Result<Vec<BacklinkResult>, AppError> {
+    // strip .md extension for matching — [[Note]] links to Note.md
+    let stem = target_name.trim_end_matches(".md");
+    // pattern matches [[stem]] or [[stem|alias]] or [[stem#heading]]
+    let pattern = format!("[[{}", stem);
+
+    let mut results: Vec<BacklinkResult> = Vec::new();
+
+    collect_backlinks(Path::new(&vault_path), &pattern, &mut results)?;
+
+    Ok(results)
+}
+
+fn collect_backlinks(
+    dir: &Path,
+    pattern: &str,
+    results: &mut Vec<BacklinkResult>,
+) -> Result<(), AppError> {
+    let entries = std::fs::read_dir(dir)?;
+    for entry in entries.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        let name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(n) => n.to_owned(),
+            None => continue,
+        };
+        if name.starts_with('.') {
+            continue;
+        }
+        if path.is_dir() {
+            collect_backlinks(&path, pattern, results)?;
+        } else if path.extension().and_then(|e| e.to_str()) == Some("md") {
+            let content = match std::fs::read_to_string(&path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            let matches: Vec<BacklinkMatch> = content
+                .lines()
+                .enumerate()
+                .filter_map(|(i, line)| {
+                    if line.contains(pattern) {
+                        Some(BacklinkMatch {
+                            line: i as u32 + 1,
+                            text: line.trim().to_owned(),
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            if !matches.is_empty() {
+                results.push(BacklinkResult {
+                    path: path.to_string_lossy().to_string(),
+                    name,
+                    matches,
+                });
+            }
+        }
+    }
+    Ok(())
+}

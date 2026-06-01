@@ -4,6 +4,7 @@ import { EditorState } from '@codemirror/state'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { useAppStore } from '../../store/appStore'
+import { useVault } from '../../hooks/useVault'
 import { buildExtensions } from './extensions'
 import { Preview } from './Preview'
 import { Toolbar } from './Toolbar'
@@ -19,7 +20,9 @@ interface ContextMenuState {
 }
 
 export function Editor() {
-  const { openFilePath, openFileContent, config, setOpenFileContent, setDirty } = useAppStore()
+  const { openFilePath, openFileContent, config, vaultFiles, setOpenFileContent, setDirty } =
+    useAppStore()
+  const { openFile } = useVault()
   const [viewMode, setViewMode] = useState<ViewMode>('edit')
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
 
@@ -45,6 +48,22 @@ export function Editor() {
       tabSize: config.editor.tab_size,
       useTabs: config.editor.use_tabs,
       onSave: saveFile,
+      getFiles: () => vaultFiles,
+      onOpenByName: (name) => {
+        const findFile = (nodes: typeof vaultFiles): string | null => {
+          for (const n of nodes) {
+            if (n.isDir && n.children) {
+              const found = findFile(n.children)
+              if (found) return found
+            } else if (n.name === name + '.md' || n.name === name) {
+              return n.path
+            }
+          }
+          return null
+        }
+        const path = findFile(vaultFiles)
+        if (path) openFile(path)
+      },
       onUpdate: (update) => {
         if (!update.docChanged) return
         const content = update.state.doc.toString()

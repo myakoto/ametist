@@ -22,52 +22,101 @@ export interface AppConfig {
   editor: EditorConfig
 }
 
+export interface Tab {
+  path: string
+  content: string
+  isDirty: boolean
+}
+
 const DEFAULT_CONFIG: AppConfig = {
   vault_path: null,
   theme: 'dark',
   custom_theme: {},
-  editor: {
-    font_size: 14,
-    word_wrap: true,
-    line_numbers: false,
-    tab_size: 2,
-    use_tabs: false,
-  },
+  editor: { font_size: 14, word_wrap: true, line_numbers: false, tab_size: 2, use_tabs: false },
 }
 
 interface AppState {
   config: AppConfig
   vaultFiles: FileNode[]
-  openFilePath: string | null
-  openFileContent: string
-  isDirty: boolean
+  tabs: Tab[]
+  activeTabPath: string | null
   sidebarVisible: boolean
   settingsOpen: boolean
 
+  // derived helpers
+  activeTab: () => Tab | null
+  openFilePath: () => string | null
+  openFileContent: () => string
+  isDirty: () => boolean
+
+  // actions
   setConfig: (config: AppConfig) => void
   setVaultFiles: (files: FileNode[]) => void
-  setOpenFile: (path: string | null, content: string) => void
-  setOpenFileContent: (content: string) => void
-  setDirty: (dirty: boolean) => void
+  openTab: (path: string, content: string) => void
+  closeTab: (path: string) => void
+  setTabContent: (path: string, content: string) => void
+  setTabDirty: (path: string, dirty: boolean) => void
   toggleSidebar: () => void
   setSettingsOpen: (open: boolean) => void
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   config: DEFAULT_CONFIG,
   vaultFiles: [],
-  openFilePath: null,
-  openFileContent: '',
-  isDirty: false,
+  tabs: [],
+  activeTabPath: null,
   sidebarVisible: true,
   settingsOpen: false,
 
+  // derived
+  activeTab: () => get().tabs.find((t) => t.path === get().activeTabPath) ?? null,
+  openFilePath: () => get().activeTabPath,
+  openFileContent: () => get().activeTab()?.content ?? '',
+  isDirty: () => get().activeTab()?.isDirty ?? false,
+
+  // actions
   setConfig: (config) => set({ config }),
   setVaultFiles: (vaultFiles) => set({ vaultFiles }),
-  setOpenFile: (path, content) =>
-    set({ openFilePath: path, openFileContent: content, isDirty: false }),
-  setOpenFileContent: (content) => set({ openFileContent: content, isDirty: true }),
-  setDirty: (isDirty) => set({ isDirty }),
+
+  openTab: (path, content) => {
+    set((s) => {
+      const existing = s.tabs.find((t) => t.path === path)
+      if (existing) {
+        return { activeTabPath: path }
+      }
+      return {
+        tabs: [...s.tabs, { path, content, isDirty: false }],
+        activeTabPath: path,
+      }
+    })
+  },
+
+  closeTab: (path) => {
+    set((s) => {
+      const idx = s.tabs.findIndex((t) => t.path === path)
+      if (idx === -1) return s
+      const newTabs = s.tabs.filter((t) => t.path !== path)
+      let newActive = s.activeTabPath
+      if (s.activeTabPath === path) {
+        const next = newTabs[idx] ?? newTabs[idx - 1] ?? null
+        newActive = next?.path ?? null
+      }
+      return { tabs: newTabs, activeTabPath: newActive }
+    })
+  },
+
+  setTabContent: (path, content) => {
+    set((s) => ({
+      tabs: s.tabs.map((t) => (t.path === path ? { ...t, content } : t)),
+    }))
+  },
+
+  setTabDirty: (path, isDirty) => {
+    set((s) => ({
+      tabs: s.tabs.map((t) => (t.path === path ? { ...t, isDirty } : t)),
+    }))
+  },
+
   toggleSidebar: () => set((s) => ({ sidebarVisible: !s.sidebarVisible })),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
 }))

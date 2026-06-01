@@ -16,7 +16,9 @@ interface BacklinkResult {
 }
 
 export function Backlinks() {
-  const { openFilePath, config } = useAppStore()
+  const activeTab = useAppStore((s) => s.activeTab())
+  const config = useAppStore((s) => s.config)
+  const openFilePath = activeTab?.path ?? null
   const { openFile } = useVault()
   const [results, setResults] = useState<BacklinkResult[]>([])
   const [loading, setLoading] = useState(false)

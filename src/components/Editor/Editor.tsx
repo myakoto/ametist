@@ -8,6 +8,7 @@ import { useVault } from '../../hooks/useVault'
 import { buildExtensions } from './extensions'
 import { Preview } from './Preview'
 import { Toolbar } from './Toolbar'
+import { TabBar } from '../TabBar/TabBar'
 import { EditorContextMenu } from './EditorContextMenu'
 import styles from './Editor.module.css'
 
@@ -20,76 +21,71 @@ interface ContextMenuState {
 }
 
 export function Editor() {
-  const { openFilePath, openFileContent, config, vaultFiles, setOpenFileContent, setDirty } =
-    useAppStore()
-  const { openFile } = useVault()
+  const { config, vaultFiles, activeTabPath, setTabContent, setTabDirty } = useAppStore()
+  const activeTab = useAppStore((s) => s.activeTab())
+  const { openByName } = useVault()
+
   const [viewMode, setViewMode] = useState<ViewMode>('edit')
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const currentPathRef = useRef<string | null>(null)
+  const activePathRef = useRef<string | null>(null)
 
-  const saveFile = async () => {
-    const path = currentPathRef.current
-    const view = viewRef.current
-    if (!path || !view) return
-    await invoke('write_file', { path, content: view.state.doc.toString() })
-    setDirty(false)
+  const saveNow = async (path: string, content: string) => {
+    await invoke('write_file', { path, content })
+    setTabDirty(path, false)
   }
 
+  // Rebuild editor when active tab changes or editor settings change
   useEffect(() => {
     if (!containerRef.current || viewMode === 'preview') return
+    if (!activeTab) {
+      if (viewRef.current) { viewRef.current.destroy(); viewRef.current = null }
+      return
+    }
+
+    activePathRef.current = activeTab.path
 
     const extensions = buildExtensions({
       wordWrap: config.editor.word_wrap,
       lineNumbersEnabled: config.editor.line_numbers,
       tabSize: config.editor.tab_size,
       useTabs: config.editor.use_tabs,
-      onSave: saveFile,
-      getFiles: () => vaultFiles,
-      onOpenByName: (name) => {
-        const findFile = (nodes: typeof vaultFiles): string | null => {
-          for (const n of nodes) {
-            if (n.isDir && n.children) {
-              const found = findFile(n.children)
-              if (found) return found
-            } else if (n.name === name + '.md' || n.name === name) {
-              return n.path
-            }
-          }
-          return null
-        }
-        const path = findFile(vaultFiles)
-        if (path) openFile(path)
+      onSave: () => {
+        const view = viewRef.current
+        const path = activePathRef.current
+        if (view && path) saveNow(path, view.state.doc.toString())
       },
+      getFiles: () => vaultFiles,
+      onOpenByName: (name) => openByName(name),
       onUpdate: (update) => {
         if (!update.docChanged) return
+        const path = activePathRef.current
+        if (!path) return
         const content = update.state.doc.toString()
-        setOpenFileContent(content)
+        setTabContent(path, content)
+        setTabDirty(path, true)
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-        saveTimerRef.current = setTimeout(async () => {
-          const path = currentPathRef.current
-          const v = viewRef.current
-          if (!path || !v) return
-          await invoke('write_file', { path, content: v.state.doc.toString() })
-          setDirty(false)
+        saveTimerRef.current = setTimeout(() => {
+          const view = viewRef.current
+          if (view && path) saveNow(path, view.state.doc.toString())
         }, 500)
       },
     })
 
-    const state = EditorState.create({ doc: openFileContent, extensions })
-
     if (viewRef.current) viewRef.current.destroy()
-    const view = new EditorView({ state, parent: containerRef.current })
+
+    const view = new EditorView({
+      state: EditorState.create({ doc: activeTab.content, extensions }),
+      parent: containerRef.current,
+    })
     viewRef.current = view
-    currentPathRef.current = openFilePath
 
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault()
-      const hasSelection = !view.state.selection.main.empty
-      setContextMenu({ x: e.clientX, y: e.clientY, hasSelection })
+      setContextMenu({ x: e.clientX, y: e.clientY, hasSelection: !view.state.selection.main.empty })
     }
     containerRef.current.addEventListener('contextmenu', handleContextMenu)
 
@@ -98,37 +94,39 @@ export function Editor() {
       containerRef.current?.removeEventListener('contextmenu', handleContextMenu)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openFilePath, config.editor, viewMode])
+  }, [activeTabPath, config.editor, viewMode])
 
+  // Listen for external file modifications
   useEffect(() => {
     const unlisten = listen<{ path: string }>('file_externally_modified', (event) => {
-      if (event.payload.path !== currentPathRef.current) return
+      if (event.payload.path !== activePathRef.current) return
       invoke<string>('read_file', { path: event.payload.path }).then((content) => {
         const view = viewRef.current
         if (!view) return
         view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: content } })
-        setDirty(false)
+        setTabDirty(event.payload.path, false)
       })
     })
-    return () => {
-      unlisten.then((fn) => fn())
-    }
-  }, [setDirty])
+    return () => { unlisten.then((fn) => fn()) }
+  }, [setTabDirty])
 
-  if (!openFilePath) {
+  if (!activeTab) {
     return (
-      <div className={styles.empty}>
-        <p>Выберите файл или создайте новую заметку</p>
+      <div className={styles.wrapper}>
+        <TabBar />
+        <div className={styles.empty}>
+          <p>Выберите файл или создайте новую заметку</p>
+        </div>
       </div>
     )
   }
 
   return (
     <div className={styles.wrapper}>
-      {/* Toolbar — visible in edit and split modes */}
+      <TabBar />
+
       {viewMode !== 'preview' && <Toolbar viewRef={viewRef} />}
 
-      {/* Mode switcher */}
       <div className={styles.modeBar}>
         <div className={styles.modeToggle}>
           {(['edit', 'split', 'preview'] as ViewMode[]).map((mode) => (
@@ -143,7 +141,6 @@ export function Editor() {
         </div>
       </div>
 
-      {/* Content area */}
       <div className={styles.content}>
         {viewMode !== 'preview' && (
           <div
@@ -155,7 +152,7 @@ export function Editor() {
         {viewMode === 'split' && <div className={styles.divider} />}
         {viewMode !== 'edit' && (
           <div className={viewMode === 'split' ? styles.previewPane : styles.previewFull}>
-            <Preview content={openFileContent} />
+            <Preview content={activeTab.content} />
           </div>
         )}
       </div>

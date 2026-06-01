@@ -3,10 +3,11 @@ import { useAppStore } from '../../store/appStore'
 import styles from './TitleBar.module.css'
 
 export function TitleBar() {
-  const { openFilePath, isDirty, settingsOpen, setSettingsOpen } = useAppStore()
+  const { settingsOpen, setSettingsOpen } = useAppStore()
+  const activeTab = useAppStore((s) => s.activeTab())
 
-  const fileName = openFilePath ? openFilePath.split(/[\\/]/).pop() : null
-
+  const fileName = activeTab?.path.split(/[\\/]/).pop() ?? null
+  const isDirty = activeTab?.isDirty ?? false
   const win = getCurrentWindow()
 
   return (
@@ -19,22 +20,10 @@ export function TitleBar() {
         </div>
       )}
       <div className={styles.spacer} data-tauri-drag-region />
-      <button
-        className={styles.controlBtn}
-        title="Settings"
-        onClick={() => setSettingsOpen(!settingsOpen)}
-      >
-        ⚙
-      </button>
-      <button className={styles.controlBtn} onClick={() => win.minimize()}>
-        ─
-      </button>
-      <button className={styles.controlBtn} onClick={() => win.toggleMaximize()}>
-        □
-      </button>
-      <button className={`${styles.controlBtn} ${styles.closeBtn}`} onClick={() => win.close()}>
-        ✕
-      </button>
+      <button className={styles.controlBtn} title="Настройки" onClick={() => setSettingsOpen(!settingsOpen)}>⚙</button>
+      <button className={styles.controlBtn} onClick={() => win.minimize()}>─</button>
+      <button className={styles.controlBtn} onClick={() => win.toggleMaximize()}>□</button>
+      <button className={`${styles.controlBtn} ${styles.closeBtn}`} onClick={() => win.close()}>✕</button>
     </div>
   )
 }

@@ -137,11 +137,12 @@ function WelcomeScreen() {
 }
 
 function StatusBar() {
-  const { openFilePath, openFileContent } = useAppStore()
+  const activeTab = useAppStore((s) => s.activeTab())
 
-  const fileName = openFilePath?.split(/[\\/]/).pop() ?? ''
-  const lines = openFileContent ? openFileContent.split('\n').length : 0
-  const words = openFileContent ? openFileContent.trim().split(/\s+/).filter(Boolean).length : 0
+  const fileName = activeTab?.path.split(/[\\/]/).pop() ?? ''
+  const content = activeTab?.content ?? ''
+  const lines = content ? content.split('\n').length : 0
+  const words = content ? content.trim().split(/\s+/).filter(Boolean).length : 0
 
   return (
     <div
@@ -159,7 +160,7 @@ function StatusBar() {
       }}
     >
       {fileName && <span>{fileName}</span>}
-      {openFilePath && (
+      {activeTab && (
         <>
           <span>{lines} строк</span>
           <span>{words} слов</span>

@@ -4,7 +4,9 @@ import { FileTree } from './FileTree'
 import styles from './Sidebar.module.css'
 
 export function Sidebar() {
-  const { vaultFiles, openFilePath, config } = useAppStore()
+  const { vaultFiles, config } = useAppStore()
+  const activeTab = useAppStore((s) => s.activeTab())
+  const openFilePath = activeTab?.path ?? null
   const { openFile, createFile, createDir, renameEntry, deleteEntry } = useVault()
 
   const handleNewNote = async () => {

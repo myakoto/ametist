@@ -1,0 +1,147 @@
+.preview {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  max-width: 860px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.preview :global(.empty) {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Headings */
+.preview :global(h1),
+.preview :global(h2),
+.preview :global(h3),
+.preview :global(h4),
+.preview :global(h5),
+.preview :global(h6) {
+  color: var(--syntax-heading);
+  margin: 1.4em 0 0.5em;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.preview :global(h1) { font-size: 1.8em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+.preview :global(h2) { font-size: 1.4em; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; }
+.preview :global(h3) { font-size: 1.2em; }
+.preview :global(h4) { font-size: 1.05em; }
+
+/* Paragraphs */
+.preview :global(p) {
+  margin: 0.8em 0;
+}
+
+/* Bold / Italic */
+.preview :global(strong) {
+  color: var(--syntax-bold);
+  font-weight: 600;
+}
+
+.preview :global(em) {
+  color: var(--syntax-italic);
+  font-style: italic;
+}
+
+/* Inline code */
+.preview :global(code) {
+  font-family: var(--font-editor);
+  font-size: 0.88em;
+  color: var(--syntax-code);
+  background: var(--bg-secondary);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+}
+
+/* Code blocks */
+.preview :global(pre) {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.preview :global(pre code) {
+  background: none;
+  padding: 0;
+  font-size: 0.9em;
+  color: var(--editor-text);
+}
+
+/* Links */
+.preview :global(a) {
+  color: var(--syntax-link);
+  text-decoration: none;
+}
+
+.preview :global(a:hover) {
+  text-decoration: underline;
+}
+
+/* Lists */
+.preview :global(ul),
+.preview :global(ol) {
+  margin: 0.6em 0;
+  padding-left: 1.8em;
+}
+
+.preview :global(li) {
+  margin: 0.25em 0;
+}
+
+/* Blockquote */
+.preview :global(blockquote) {
+  border-left: 3px solid var(--accent);
+  margin: 1em 0;
+  padding: 0.5em 0 0.5em 1em;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* HR */
+.preview :global(hr) {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+}
+
+/* Tables */
+.preview :global(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 0.9em;
+}
+
+.preview :global(th),
+.preview :global(td) {
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.preview :global(th) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Checkboxes in task lists */
+.preview :global(input[type="checkbox"]) {
+  margin-right: 6px;
+}
+
+/* Images */
+.preview :global(img) {
+  max-width: 100%;
+  border-radius: var(--radius);
+}

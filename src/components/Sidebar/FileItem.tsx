@@ -14,7 +14,10 @@ interface Props {
 export function FileItem({ node, depth, activePath, onOpenFile, onRename, onDelete }: Props) {
   const [expanded, setExpanded] = useState(true)
   const [renaming, setRenaming] = useState(false)
-  const [renameValue, setRenameValue] = useState(node.name)
+  const baseName = !node.isDir && node.name.endsWith('.md')
+    ? node.name.slice(0, -3)
+    : node.name
+  const [renameValue, setRenameValue] = useState(baseName)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const renameRef = useRef<HTMLInputElement>(null)
 
@@ -29,9 +32,15 @@ export function FileItem({ node, depth, activePath, onOpenFile, onRename, onDele
   }
 
   const handleRenameSubmit = () => {
-    if (renameValue.trim() && renameValue !== node.name) {
+    let newName = renameValue.trim()
+    if (!newName) { setRenaming(false); return }
+    // preserve .md extension for files
+    if (!node.isDir && node.name.endsWith('.md') && !newName.endsWith('.md')) {
+      newName = newName + '.md'
+    }
+    if (newName !== node.name) {
       const parent = node.path.substring(0, node.path.length - node.name.length)
-      onRename(node.path, parent + renameValue.trim())
+      onRename(node.path, parent + newName)
     }
     setRenaming(false)
   }
@@ -88,6 +97,7 @@ export function FileItem({ node, depth, activePath, onOpenFile, onRename, onDele
           x={contextMenu.x}
           y={contextMenu.y}
           onRename={() => {
+            setRenameValue(baseName)
             setRenaming(true)
             setContextMenu(null)
           }}

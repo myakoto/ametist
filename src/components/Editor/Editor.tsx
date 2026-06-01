@@ -1,32 +1,35 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { EditorView } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { useAppStore } from '../../store/appStore'
 import { buildExtensions } from './extensions'
+import { Preview } from './Preview'
+import { Toolbar } from './Toolbar'
 import styles from './Editor.module.css'
+
+type ViewMode = 'edit' | 'split' | 'preview'
 
 export function Editor() {
   const { openFilePath, openFileContent, config, setOpenFileContent, setDirty } = useAppStore()
+  const [viewMode, setViewMode] = useState<ViewMode>('edit')
 
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const currentPathRef = useRef<string | null>(null)
 
-  const saveFile = useCallback(async () => {
+  const saveFile = async () => {
     const path = currentPathRef.current
     const view = viewRef.current
     if (!path || !view) return
-    const content = view.state.doc.toString()
-    await invoke('write_file', { path, content })
+    await invoke('write_file', { path, content: view.state.doc.toString() })
     setDirty(false)
-  }, [setDirty])
+  }
 
-  // build/rebuild editor when file or settings change
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!containerRef.current || viewMode === 'preview') return
 
     const extensions = buildExtensions({
       wordWrap: config.editor.word_wrap,
@@ -34,58 +37,42 @@ export function Editor() {
       tabSize: config.editor.tab_size,
       useTabs: config.editor.use_tabs,
       onSave: saveFile,
-    })
-
-    const updateListener = EditorView.updateListener.of((update) => {
-      if (update.docChanged) {
+      onUpdate: (update) => {
+        if (!update.docChanged) return
         const content = update.state.doc.toString()
         setOpenFileContent(content)
-
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-        saveTimerRef.current = setTimeout(() => {
+        saveTimerRef.current = setTimeout(async () => {
           const path = currentPathRef.current
           const v = viewRef.current
           if (!path || !v) return
-          invoke('write_file', { path, content: v.state.doc.toString() }).then(() =>
-            setDirty(false)
-          )
+          await invoke('write_file', { path, content: v.state.doc.toString() })
+          setDirty(false)
         }, 500)
-      }
+      },
     })
 
-    const state = EditorState.create({
-      doc: openFileContent,
-      extensions: [...extensions, updateListener],
-    })
+    const state = EditorState.create({ doc: openFileContent, extensions })
 
-    if (viewRef.current) {
-      viewRef.current.destroy()
-    }
-
-    const view = new EditorView({ state, parent: containerRef.current })
-    viewRef.current = view
+    if (viewRef.current) viewRef.current.destroy()
+    viewRef.current = new EditorView({ state, parent: containerRef.current })
     currentPathRef.current = openFilePath
 
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openFilePath, config.editor])
+  }, [openFilePath, config.editor, viewMode])
 
-  // listen for external modifications
   useEffect(() => {
     const unlisten = listen<{ path: string }>('file_externally_modified', (event) => {
-      if (event.payload.path === currentPathRef.current) {
-        // could show a toast — for now auto-reload
-        invoke<string>('read_file', { path: event.payload.path }).then((content) => {
-          const view = viewRef.current
-          if (!view) return
-          view.dispatch({
-            changes: { from: 0, to: view.state.doc.length, insert: content },
-          })
-          setDirty(false)
-        })
-      }
+      if (event.payload.path !== currentPathRef.current) return
+      invoke<string>('read_file', { path: event.payload.path }).then((content) => {
+        const view = viewRef.current
+        if (!view) return
+        view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: content } })
+        setDirty(false)
+      })
     })
     return () => {
       unlisten.then((fn) => fn())
@@ -101,10 +88,41 @@ export function Editor() {
   }
 
   return (
-    <div
-      ref={containerRef}
-      className={styles.editor}
-      style={{ fontSize: `${config.editor.font_size}px` }}
-    />
+    <div className={styles.wrapper}>
+      {/* Toolbar — visible in edit and split modes */}
+      {viewMode !== 'preview' && <Toolbar viewRef={viewRef} />}
+
+      {/* Mode switcher */}
+      <div className={styles.modeBar}>
+        <div className={styles.modeToggle}>
+          {(['edit', 'split', 'preview'] as ViewMode[]).map((mode) => (
+            <button
+              key={mode}
+              className={viewMode === mode ? styles.modeActive : styles.modeBtn}
+              onClick={() => setViewMode(mode)}
+            >
+              {mode === 'edit' ? 'Edit' : mode === 'split' ? 'Split' : 'Preview'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content area */}
+      <div className={styles.content}>
+        {viewMode !== 'preview' && (
+          <div
+            ref={containerRef}
+            className={styles.editor}
+            style={{ fontSize: `${config.editor.font_size}px` }}
+          />
+        )}
+        {viewMode === 'split' && <div className={styles.divider} />}
+        {viewMode !== 'edit' && (
+          <div className={viewMode === 'split' ? styles.previewPane : styles.previewFull}>
+            <Preview content={openFileContent} />
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

@@ -7,13 +7,21 @@ import { useAppStore } from '../../store/appStore'
 import { buildExtensions } from './extensions'
 import { Preview } from './Preview'
 import { Toolbar } from './Toolbar'
+import { EditorContextMenu } from './EditorContextMenu'
 import styles from './Editor.module.css'
 
 type ViewMode = 'edit' | 'split' | 'preview'
 
+interface ContextMenuState {
+  x: number
+  y: number
+  hasSelection: boolean
+}
+
 export function Editor() {
   const { openFilePath, openFileContent, config, setOpenFileContent, setDirty } = useAppStore()
   const [viewMode, setViewMode] = useState<ViewMode>('edit')
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -55,11 +63,20 @@ export function Editor() {
     const state = EditorState.create({ doc: openFileContent, extensions })
 
     if (viewRef.current) viewRef.current.destroy()
-    viewRef.current = new EditorView({ state, parent: containerRef.current })
+    const view = new EditorView({ state, parent: containerRef.current })
+    viewRef.current = view
     currentPathRef.current = openFilePath
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault()
+      const hasSelection = !view.state.selection.main.empty
+      setContextMenu({ x: e.clientX, y: e.clientY, hasSelection })
+    }
+    containerRef.current.addEventListener('contextmenu', handleContextMenu)
 
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      containerRef.current?.removeEventListener('contextmenu', handleContextMenu)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openFilePath, config.editor, viewMode])
@@ -123,6 +140,16 @@ export function Editor() {
           </div>
         )}
       </div>
+
+      {contextMenu && viewRef.current && (
+        <EditorContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          view={viewRef.current}
+          hasSelection={contextMenu.hasSelection}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   )
 }
